@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Plow Daddy – Cloud</title>
+  <style>
+    :root{
+      --bg:#0f172a;
+      --card:#111827;
+      --ink:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --danger:#ef4444;
+      --chip:#1f2937;
+      --line:#334155;
+      --nav:#020617;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+    .wrap{max-width:1200px;margin:0 auto;padding:12px 16px 40px}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    h1{font-size:1.3rem;margin:4px 0}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap}
+    button{appearance:none;border:1px solid var(--line);background:#020617;color:var(--ink);padding:8px 10px;border-radius:10px;font-size:.9rem;cursor:pointer}
+    button.primary{background:var(--accent);border-color:transparent;color:#052e16;font-weight:600}
+    button.warn{background:var(--warn);border-color:transparent;color:#1f1300;font-weight:600}
+    button.danger{background:var(--danger);border-color:transparent;color:#220808;font-weight:600}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+    .grid{display:grid;gap:10px}
+    .grid.cols-2{grid-template-columns:1fr}
+    @media(min-width:720px){.grid.cols-2{grid-template-columns:1fr 1fr}}
+    label{font-size:.8rem;color:var(--muted)}
+    input,select,textarea{width:100%;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:#020617;color:var(--ink)}
+    textarea{min-height:60px}
+    .chips{display:flex;flex-wrap:wrap;gap:8px}
+    .chip{padding:6px 9px;border:1px solid var(--line);background:var(--chip);border-radius:999px;font-size:.8rem;cursor:pointer;user-select:none}
+    .chip.active{outline:2px solid var(--accent)}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .list{margin-top:14px;display:grid;gap:10px}
+    .muted{color:var(--muted)}
+    .pill{border:1px solid var(--line);padding:3px 7px;border-radius:999px;font-size:.75rem}
+    .right{margin-left:auto}
+    nav.appnav{margin-top:10px;background:var(--nav);border:1px solid var(--line);border-radius:14px;padding:6px;display:flex;gap:6px;flex-wrap:wrap}
+    .tab{border:1px solid var(--line);background:#020617;color:var(--ink);padding:6px 10px;border-radius:10px;cursor:pointer;font-size:.9rem;position:relative}
+    .tab.active{background:rgba(34,197,94,.16);border-color:#22c55e}
+    .badge{position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;font-size:.65rem;border-radius:999px;padding:1px 6px;border:2px solid var(--nav);display:none}
+    .badge.show{display:inline-block}
+    .check{display:flex;align-items:center;gap:6px;font-size:.8rem}
+    .check input{width:16px;height:16px}
+    dialog::backdrop{background:rgba(15,23,42,.7)}
+    dialog{border:none;border-radius:18px;padding:0}
+    .print-hide{display:block}
+    @media print{.print-hide{display:none!important} body{background:#fff;color:#000} .card{background:#fff;border-color:#ddd}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="print-hide">
+    <div>
+      <h1>❄️ Plow Daddy – Cloud</h1>
+      <div class="muted" style="font-size:.8rem" id="userLabel">Not logged in</div>
+      <div class="muted" style="font-size:.75rem" id="tenantLabel"></div>
+    </div>
+    <div class="toolbar">
+      <button class="primary" id="addBtn">Add Customer</button>
+      <button id="routeBtn">Route</button>
+      <button id="logBtn">Log Job</button>
+      <button id="loginBtn">Login / Switch Company</button>
+      <button class="warn" onclick="window.print()">Print</button>
+      <button class="danger" id="clearBtn">Clear All (Company)</button>
+    </div>
+  </header>
+
+  <nav class="appnav print-hide">
+    <button class="tab active" data-page="dashboard">Dashboard <span class="badge" id="b_overdue"></span></button>
+    <button class="tab" data-page="customers">Customers <span class="badge" id="b_customers"></span></button>
+    <button class="tab" data-page="routes">Routes <span class="badge" id="b_route"></span></button>
+    <button class="tab" data-page="jobs">Jobs <span class="badge" id="b_jobs"></span></button>
+    <button class="tab" data-page="settings">Settings</button>
+  </nav>
+
+  <section class="page active" id="page-dashboard">
+    <div class="card">
+      <div class="row">
+        <input id="q" placeholder="Search name / address / notes..." />
+        <select id="statusFilter">
+          <option value="">Status: Any</option>
+          <option>Active</option>
+          <option>Paused</option>
+          <option>Lead</option>
+          <option>Canceled</option>
+        </select>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <span class="pill" id="kpi_active">Active: 0</span>
+        <span class="pill" id="kpi_leads">Leads: 0</span>
+        <span class="pill" id="kpi_paused">Paused: 0</span>
+        <span class="pill" id="kpi_balance">Balance: $0.00</span>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label class="check"><input id="overdueOnly" type="checkbox" /> Overdue only</label>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:10px">
+      <div class="row">
+        <strong>Weather Radar</strong>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <input id="wxUrl" placeholder="https://radar.weather.gov" />
+        <button id="wxSave">Show</button>
+      </div>
+      <div style="margin-top:8px;height:320px;border-radius:12px;border:1px solid var(--line);overflow:hidden;background:#020617">
+        <iframe id="wxFrame" src="https://radar.weather.gov" style="width:100%;height:100%;border:0"></iframe>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-customers">
+    <div id="list" class="list"></div>
+  </section>
+
+  <section class="page" id="page-routes">
+    <div class="card">
+      <strong>Route Preview</strong>
+      <div class="muted" style="font-size:.8rem;margin-top:4px">Check “Include” on customers, then tap Route.</div>
+    </div>
+    <div id="routePreview" class="list"></div>
+  </section>
+
+  <section class="page" id="page-jobs">
+    <div id="jobsList" class="list"></div>
+  </section>
+
+  <section class="page" id="page-settings">
+    <div class="card">
+      <strong>Settings</strong>
+      <div class="grid cols-2" style="margin-top:8px">
+        <div>
+          <label>Base / Yard Address</label>
+          <input id="set_base" />
+        </div>
+        <div>
+          <label>Default Radar URL</label>
+          <input id="set_radar" placeholder="https://radar.weather.gov" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="saveSettings">Save Settings</button>
+      </div>
+      <div class="muted" style="font-size:.75rem;margin-top:6px">
+        Each company code has its own customers, jobs, and settings. Share your code only with your own crew.
+      </div>
+    </div>
+  </section>
+
+  <dialog id="loginModal">
+    <form method="dialog" class="card" style="max-width:420px;width:92vw">
+      <h3 style="margin-top:0">Login / Join Company</h3>
+      <div class="grid cols-2">
+        <div style="grid-column:1/-1">
+          <label>Company Code (no spaces)</label>
+          <input id="login_company" placeholder="e.g. baker, snowboss27" />
+        </div>
+        <div style="grid-column:1/-1">
+          <label>Your Name</label>
+          <input id="login_name" placeholder="Driver name" />
+        </div>
+        <div>
+          <label>PIN (4 digits)</label>
+          <input id="login_pin" maxlength="4" inputmode="numeric" />
+        </div>
+        <div>
+          <label>Role</label>
+          <select id="login_role">
+            <option value="employee">Employee</option>
+            <option value="admin">Admin / Owner</option>
+          </select>
+        </div>
+      </div>
+      <div class="muted" style="font-size:.8rem;margin-top:6px">
+        First time a company code is used, a fresh blank workspace is created for that company.
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button value="cancel">Cancel</button>
+        <div class="right"></div>
+        <button class="primary" id="loginSave" value="default">Enter App</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="custModal">
+    <form method="dialog" class="card" style="max-width:900px;width:92vw">
+      <h3 style="margin-top:0">Customer</h3>
+      <div class="grid cols-2">
+        <div>
+          <label>Name</label>
+          <input id="f_name" required />
+        </div>
+        <div>
+          <label>Phone</label>
+          <input id="f_phone" />
+        </div>
+        <div>
+          <label>Address</label>
+          <input id="f_address" />
+        </div>
+        <div>
+          <label>Assigned To</label>
+          <input id="f_assigned" />
+        </div>
+        <div>
+          <label>Type</label>
+          <select id="f_type">
+            <option value="">—</option>
+            <option>Residential</option>
+            <option>Commercial</option>
+          </select>
+        </div>
+        <div>
+          <label>Status</label>
+          <select id="f_status">
+            <option>Active</option>
+            <option>Paused</option>
+            <option>Lead</option>
+            <option>Canceled</option>
+          </select>
+        </div>
+        <div>
+          <label>Price / Rate</label>
+          <input id="f_price" placeholder="$" />
+        </div>
+        <div>
+          <label>Balance ($)</label>
+          <input id="f_balance" placeholder="0.00" />
+        </div>
+        <div>
+          <label>Next Visit</label>
+          <input id="f_next" type="date" />
+        </div>
+        <div>
+          <label>Last Service</label>
+          <input id="f_last" type="date" />
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <label>Services</label>
+        <div class="chips" id="serviceChips"></div>
+      </div>
+      <div style="margin-top:8px">
+        <label>Notes</label>
+        <textarea id="f_notes"></textarea>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button value="cancel">Cancel</button>
+        <div class="right"></div>
+        <button class="danger" id="deleteBtn" value="delete">Delete</button>
+        <button class="primary" id="saveBtn" value="default">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="jobModal">
+    <form method="dialog" class="card" style="max-width:700px;width:92vw">
+      <h3 style="margin-top:0">Log Job</h3>
+      <div class="grid cols-2">
+        <div>
+          <label>Customer</label>
+          <select id="j_customer"></select>
+        </div>
+        <div>
+          <label>Type</label>
+          <select id="j_type">
+            <option>Plow</option>
+            <option>Salt</option>
+            <option>Both</option>
+          </select>
+        </div>
+        <div>
+          <label>Date</label>
+          <input id="j_date" type="date" />
+        </div>
+        <div>
+          <label>Status</label>
+          <select id="j_status">
+            <option>Completed</option>
+            <option>Skipped</option>
+            <option>Delayed</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <label>Notes</label>
+        <textarea id="j_notes"></textarea>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button value="cancel">Cancel</button>
+        <div class="right"></div>
+        <button class="primary" id="j_save" value="default">Save Log</button>
+      </div>
+    </form>
+  </dialog>
+
+  <template id="itemTmpl">
+    <div class="card">
+      <div class="row" style="align-items:flex-start;justify-content:space-between">
+        <div style="flex:1;min-width:0">
+          <div class="row" style="align-items:center;gap:6px">
+            <label class="check"><input type="checkbox" class="inc-route" /> Include</label>
+            <strong class="name"></strong>
+            <span class="pill status"></span>
+            <span class="pill type"></span>
+            <span class="pill assigned"></span>
+          </div>
+          <div class="row" style="margin-top:4px;font-size:.8rem">
+            <span class="address muted"></span>
+          </div>
+          <div class="row" style="margin-top:4px;font-size:.8rem">
+            <span class="services muted"></span>
+            <span class="price right muted"></span>
+          </div>
+          <div class="row" style="margin-top:4px;font-size:.8rem">
+            <span class="muted">Next: <span class="next"></span></span>
+            <span class="muted">Last: <span class="last"></span></span>
+            <span class="balance muted"></span>
+          </div>
+          <div class="muted notes" style="margin-top:4px;font-size:.8rem"></div>
+        </div>
+        <div class="print-hide" style="display:flex;flex-direction:column;gap:6px">
+          <button class="btn-nav">Nav</button>
+          <button class="btn-edit">Edit</button>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>
+
+<script>
+  const SVC = ["Plow","Salt","Shovel","Seasonal","Per Push"];
+
+  let rows = [];
+  let jobs = [];
+  let editingId = null;
+  let currentUser = localStorage.getItem("pd_user") || null;
+  let currentRole = localStorage.getItem("pd_role") || "employee";
+  let tenantCode = localStorage.getItem("pd_tenant") || null;
+
+  const PRELOADED_CUSTOMERS = [
+    {name:"dg whiting", address:"1751 Indianapolis Blvd, Whiting, IN 46394", assigned:"Driver Slim", services:["Plow","Salt","Shovel"], notes:"include city sidewalk", status:"Active"},
+    {name:"burger king 61st", address:"105 W 61st Ave, Merrillville, IN 46410", assigned:"Driver Baker", services:["Plow","Salt","Shovel"], status:"Active"},
+    {name:"pjs grill", address:"5891 Broadway, Merrillville, IN 46410", assigned:"Driver Baker", services:["Plow","Shovel"], notes:"NO SALT", status:"Active"},
+    {name:"Taco Depot", address:"851 W 57th Ave, Merrillville, IN 46410", assigned:"Driver Slim", services:["Plow","Shovel"], notes:"NO SALT", status:"Active"},
+    {name:"tech weigh", address:"1004 Reder Rd, Griffith, IN 46319", assigned:"Driver Slim", services:["Plow","Salt","Shovel"], notes:"shovel all doorways", status:"Active"},
+    {name:"autozone lowell", address:"980 E Commercial Ave, Lowell, IN 46356", assigned:"Driver Baker", services:["Plow","Shovel"], notes:"no salt", status:"Active"},
+    {name:"mike minet cp", address:"9419 Arthur St, Crown Point, IN", assigned:"Driver Slim", services:["Plow","Shovel"], notes:"shovel all walkways", status:"Active"},
+    {name:"mike minet mville", address:"8741 Van Buren St, Merrillville, IN", assigned:"Driver Slim", services:["Plow","Shovel"], notes:"no salt", status:"Active"},
+    {name:"ers", address:"523 S Colfax St, Griffith, IN 46319", assigned:"Driver Baker", services:["Plow","Salt","Shovel"], status:"Active"},
+    {name:"incandescent transportation service", address:"714 N Wheeler St, Griffith, IN 46319", assigned:"Driver Baker", services:["Plow"], notes:"plow lot", status:"Active"},
+    {name:"streeter tax service", address:"715 W 10th St, Hobart, IN 46342", assigned:"Driver Baker", services:["Plow","Shovel"], status:"Active"},
+    {name:"radiant dental lab", address:"8040 Cleveland Pl, Merrillville, IN 46410", assigned:"Driver Baker", services:["Plow","Salt","Shovel"], status:"Active"},
+    {name:"Chasing Dreams", address:"703 N Hobart Rd, Hobart, IN 46342", assigned:"Driver Baker", services:["Plow","Salt","Shovel"], status:"Active"},
+    {name:"indiana elite gymnastics valpo", address:"2504 Roosevelt Rd, Valparaiso, IN 46385", assigned:"Driver Baker", services:["Plow","Shovel"], status:"Active"},
+    {name:"indiana elite gymnastics hobart", address:"679 IN-130, Hobart, IN 46342", assigned:"Driver Baker", services:["Plow","Shovel"], status:"Active"}
+  ];
+
+  const $ = (s,root=document)=>root.querySelector(s);
+  const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
+
+  async function fetchState(){
+    if(!tenantCode) return;
+    const res = await fetch('/api/state?tenant='+encodeURIComponent(tenantCode));
+    if(!res.ok) throw new Error('Failed to load shared state');
+    const data = await res.json();
+    rows = Array.isArray(data.customers) ? data.customers : [];
+    jobs = Array.isArray(data.jobs) ? data.jobs : [];
+  }
+
+  async function saveState(){
+    if(!tenantCode) return;
+    await fetch('/api/state?tenant='+encodeURIComponent(tenantCode), {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({customers:rows, jobs})
+    });
+  }
+
+  function updateUserLabel(){
+    const el = $("#userLabel");
+    const tl = $("#tenantLabel");
+    if(el){
+      el.textContent = currentUser ? `Logged in: ${currentUser} (${currentRole})` : "Not logged in";
+    }
+    if(tl){
+      tl.textContent = tenantCode ? `Company code: ${tenantCode}` : "No company selected";
+    }
+  }
+
+  function openLoginModal(){
+    $("#login_company").value = tenantCode || "";
+    $("#login_name").value = currentUser || "";
+    $("#login_pin").value = "";
+    $("#login_role").value = currentRole || "employee";
+    $("#loginModal").showModal();
+  }
+
+  async function doLogin(e){
+    e.preventDefault();
+    const company = $("#login_company").value.trim().toLowerCase();
+    const name = $("#login_name").value.trim();
+    const pin = $("#login_pin").value.trim();
+    const role = $("#login_role").value;
+    if(!company){ alert("Company code is required"); return; }
+    if(!name){ alert("Name required"); return; }
+    if(!/^[0-9]{4}$/.test(pin)){ alert("PIN must be 4 digits"); return; }
+
+    tenantCode = company.replace(/[^a-z0-9_-]/g,'');
+    if(!tenantCode){ alert("Invalid company code"); return; }
+
+    localStorage.setItem("pd_tenant", tenantCode);
+    localStorage.setItem("pd_user", name);
+    localStorage.setItem("pd_role", role);
+
+    currentUser = name;
+    currentRole = role;
+
+    $("#loginModal").close();
+    await initApp(true);
+  }
+
+  $$(".appnav .tab").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const page = btn.dataset.page;
+      $$(".appnav .tab").forEach(b=>b.classList.toggle("active", b===btn));
+      $$(".page").forEach(p=>p.classList.toggle("active", p.id === "page-"+page));
+      if(page==="customers") renderList();
+      if(page==="routes") renderRoutePreview();
+      if(page==="jobs") renderJobs();
+      if(page==="settings") loadSettingsUI();
+      if(page==="dashboard") { renderList(); }
+    });
+  });
+
+  $("#addBtn").addEventListener("click", ()=>{
+    if(currentRole!=="admin"){ alert("Only admin can add customers."); return; }
+    openCustModal();
+  });
+  $("#routeBtn").addEventListener("click", handleRoute);
+  $("#logBtn").addEventListener("click", openJobModal);
+  $("#loginBtn").addEventListener("click", openLoginModal);
+  $("#clearBtn").addEventListener("click", async ()=>{
+    if(currentRole!=="admin"){ alert("Admin role required to clear."); return; }
+    if(!tenantCode){ alert("No company selected."); return; }
+    if(!confirm("Clear ALL data for company '"+tenantCode+"'?")) return;
+    rows = [];
+    jobs = [];
+    await saveState();
+    renderAll();
+  });
+
+  $("#loginSave").addEventListener("click", doLogin);
+
+  $("#q").addEventListener("input", renderList);
+  $("#statusFilter").addEventListener("change", renderList);
+  $("#overdueOnly").addEventListener("change", ()=>{
+    localStorage.setItem("pd_overdue_only", $("#overdueOnly").checked ? "1":"0");
+    renderList();
+  });
+
+  $("#wxSave").addEventListener("click", ()=>{
+    const url = $("#wxUrl").value.trim();
+    if(url){
+      localStorage.setItem("pd_wx", url);
+      $("#wxFrame").src = url;
+    }
+  });
+  (function initWeather(){
+    const url = localStorage.getItem("pd_wx");
+    if(url){
+      $("#wxUrl").value = url;
+      $("#wxFrame").src = url;
+    }
+  })();
+
+  function loadSettingsUI(){
+    $("#set_base").value = localStorage.getItem("pd_base_"+(tenantCode||"")) || "";
+    $("#set_radar").value = localStorage.getItem("pd_wx") || "https://radar.weather.gov";
+  }
+  $("#saveSettings").addEventListener("click", ()=>{
+    if(!tenantCode){ alert("Set a company code first (Login)."); return; }
+    localStorage.setItem("pd_base_"+tenantCode, $("#set_base").value.trim());
+    const rad = $("#set_radar").value.trim();
+    if(rad){
+      localStorage.setItem("pd_wx", rad);
+      $("#wxFrame").src = rad;
+    }
+    alert("Settings saved.");
+  });
+
+  function initServiceChips(){
+    const wrap = $("#serviceChips");
+    wrap.innerHTML = "";
+    SVC.forEach(s=>{
+      const c = document.createElement("div");
+      c.className = "chip";
+      c.textContent = s;
+      c.dataset.val = s;
+      c.addEventListener("click", ()=> c.classList.toggle("active"));
+      wrap.appendChild(c);
+    });
+  }
+  initServiceChips();
+
+  $("#saveBtn").addEventListener("click", async (e)=>{
+    e.preventDefault();
+    if(currentRole!=="admin"){ alert("Only admin can save changes."); return; }
+    const rec = collectForm();
+    if(!rec.name){ alert("Name required"); return; }
+    if(editingId){
+      const idx = rows.findIndex(r=>r.id===editingId);
+      if(idx>=0) rows[idx] = {...rows[idx], ...rec};
+    } else {
+      rec.id = crypto.randomUUID();
+      rows.push(rec);
+    }
+    await saveState();
+    $("#custModal").close();
+    renderAll();
+  });
+
+  $("#deleteBtn").addEventListener("click", async (e)=>{
+    e.preventDefault();
+    if(currentRole!=="admin"){ alert("Only admin can delete."); return; }
+    if(!editingId){ $("#custModal").close(); return; }
+    if(!confirm("Delete this customer?")) return;
+    rows = rows.filter(r=>r.id!==editingId);
+    await saveState();
+    $("#custModal").close();
+    renderAll();
+  });
+
+  function openCustModal(id){
+    editingId = id || null;
+    const rec = rows.find(r=>r.id===id) || {};
+    $("#f_name").value = rec.name || "";
+    $("#f_phone").value = rec.phone || "";
+    $("#f_address").value = rec.address || "";
+    $("#f_assigned").value = rec.assigned || "";
+    $("#f_type").value = rec.type || "";
+    $("#f_status").value = rec.status || "Active";
+    $("#f_price").value = rec.price || "";
+    $("#f_balance").value = rec.balance || "";
+    $("#f_next").value = rec.next || "";
+    $("#f_last").value = rec.last || "";
+    $("#f_notes").value = rec.notes || "";
+    $$("#serviceChips .chip").forEach(ch=>{
+      ch.classList.toggle("active", (rec.services||[]).includes(ch.dataset.val));
+    });
+    $("#custModal").showModal();
+  }
+
+  function collectForm(){
+    const services = $$("#serviceChips .chip").filter(ch=>ch.classList.contains("active")).map(ch=>ch.dataset.val);
+    return {
+      id: editingId || crypto.randomUUID(),
+      name: $("#f_name").value.trim(),
+      phone: $("#f_phone").value.trim(),
+      address: $("#f_address").value.trim(),
+      assigned: $("#f_assigned").value.trim(),
+      type: $("#f_type").value,
+      status: $("#f_status").value,
+      price: $("#f_price").value.trim(),
+      balance: $("#f_balance").value.trim(),
+      next: $("#f_next").value,
+      last: $("#f_last").value,
+      services,
+      notes: $("#f_notes").value.trim()
+    };
+  }
+
+  function renderList(){
+    const q = ($("#q").value||"").toLowerCase();
+    const sf = $("#statusFilter").value;
+    const overdueOnly = localStorage.getItem("pd_overdue_only")==="1";
+    $("#overdueOnly").checked = overdueOnly;
+    const today = new Date().toISOString().slice(0,10);
+
+    let list = rows.filter(r=>{
+      const blob = [r.name,r.address,r.phone,r.notes,(r.services||[]).join(" ")].join(" ").toLowerCase();
+      const okQ = !q || blob.includes(q);
+      const okS = !sf || r.status===sf;
+      let okOver = true;
+      if(overdueOnly){
+        okOver = (r.status==="Active" && r.next && r.next < today);
+      }
+      return okQ && okS && okOver;
+    });
+
+    list.sort((a,b)=>(a.next||"~").localeCompare(b.next||"~"));
+
+    const root = $("#list");
+    root.innerHTML = "";
+    const tmpl = $("#itemTmpl");
+    list.forEach(r=>{
+      const node = tmpl.content.cloneNode(true);
+      node.querySelector(".name").textContent = r.name || "(no name)";
+      node.querySelector(".status").textContent = r.status || "";
+      node.querySelector(".type").textContent = r.type || "";
+      node.querySelector(".assigned").textContent = r.assigned ? "@ "+r.assigned : "";
+      node.querySelector(".address").textContent = r.address || "";
+      node.querySelector(".services").textContent = (r.services||[]).join(" • ");
+      node.querySelector(".price").textContent = r.price ? "$"+r.price : "";
+      node.querySelector(".next").textContent = r.next || "-";
+      node.querySelector(".last").textContent = r.last || "-";
+      node.querySelector(".balance").textContent = r.balance ? "Balance $"+Number(r.balance).toFixed(2) : "";
+      node.querySelector(".notes").textContent = r.notes || "";
+      const cb = node.querySelector(".inc-route");
+      cb.checked = !!r.include;
+      cb.addEventListener("change", async ()=>{
+        r.include = cb.checked;
+        await saveState();
+        renderBadges();
+      });
+      node.querySelector(".btn-edit").addEventListener("click", ()=>{
+        if(currentRole!=="admin"){ alert("Only admin can edit customers."); return; }
+        openCustModal(r.id);
+      });
+      node.querySelector(".btn-nav").addEventListener("click", ()=>openSingleNav(r));
+      root.appendChild(node);
+    });
+
+    renderKpis(list);
+    renderBadges();
+  }
+
+  function renderKpis(list){
+    const active = list.filter(r=>r.status==="Active").length;
+    const leads = list.filter(r=>r.status==="Lead").length;
+    const paused = list.filter(r=>r.status==="Paused").length;
+    const bal = list.reduce((s,r)=>s+(Number(r.balance)||0),0);
+    $("#kpi_active").textContent = "Active: "+active;
+    $("#kpi_leads").textContent = "Leads: "+leads;
+    $("#kpi_paused").textContent = "Paused: "+paused;
+    $("#kpi_balance").textContent = "Balance: $"+bal.toFixed(2);
+  }
+
+  function renderBadges(){
+    const today = new Date().toISOString().slice(0,10);
+    const overdue = rows.filter(r=>r.status==="Active" && r.next && r.next < today).length;
+    const cnt = rows.length;
+    const sel = rows.filter(r=>r.include).length;
+    const jobsToday = jobs.filter(j=>j.date===today).length;
+
+    const b_over = $("#b_overdue");
+    const b_cust = $("#b_customers");
+    const b_route = $("#b_route");
+    const b_jobs = $("#b_jobs");
+
+    if(b_over){ b_over.textContent = overdue; b_over.classList.toggle("show", overdue>0); }
+    if(b_cust){ b_cust.textContent = cnt; b_cust.classList.toggle("show", cnt>0); }
+    if(b_route){ b_route.textContent = sel; b_route.classList.toggle("show", sel>0); }
+    if(b_jobs){ b_jobs.textContent = jobsToday; b_jobs.classList.toggle("show", jobsToday>0); }
+  }
+
+  function getSelected(){
+    return rows.filter(r=>r.include && r.address);
+  }
+
+  function openSingleNav(r){
+    if(!r.address){ alert("No address on file."); return; }
+    const isApple = /iPhone|iPad|Macintosh/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent);
+    const url = isApple
+      ? `maps://?daddr=${encodeURIComponent(r.address)}`
+      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.address)}`;
+    window.open(url, "_blank");
+  }
+
+  function handleRoute(){
+    const sel = getSelected();
+    if(!sel.length){ alert("No stops selected (check Include)."); return; }
+    const baseKey = tenantCode ? "pd_base_"+tenantCode : "pd_base";
+    const base = (localStorage.getItem(baseKey)||"").trim() || "Current Location";
+    const addrs = sel.map(r=>r.address);
+    const url = buildRouteUrl(base, addrs);
+    window.open(url, "_blank");
+  }
+
+  function buildRouteUrl(originStr, addrs){
+    const dest = encodeURIComponent(addrs[addrs.length-1]);
+    const waypoints = addrs.slice(0,-1).map(a=>encodeURIComponent(a)).join("|");
+    return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originStr)}&destination=${dest}&waypoints=${waypoints}`;
+  }
+
+  function renderRoutePreview(){
+    const root = $("#routePreview");
+    root.innerHTML = "";
+    const selected = getSelected();
+    if(!selected.length){
+      root.innerHTML = '<div class="card muted">No stops selected yet.</div>';
+      return;
+    }
+    selected.forEach(r=>{
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <div>
+            <b>${r.name||""}</b>
+            <div class="muted" style="font-size:.8rem">${r.address||""}</div>
+          </div>
+          <div class="row">
+            <button class="btn" data-act="nav" data-id="${r.id}">Nav</button>
+            <button class="btn" data-act="done" data-id="${r.id}">Done</button>
+          </div>
+        </div>`;
+      root.appendChild(div);
+    });
+
+    root.onclick = async ev => {
+      const btn = ev.target.closest("button[data-act]");
+      if(!btn) return;
+      const id = btn.getAttribute("data-id");
+      const act = btn.getAttribute("data-act");
+      const r = rows.find(x=>x.id===id);
+      if(!r) return;
+      if(act==="nav") openSingleNav(r);
+      if(act==="done") await quickDone(id);
+    };
+  }
+
+  async function quickDone(id){
+    const r = rows.find(x=>x.id===id);
+    if(!r) return;
+    const today = new Date().toISOString().slice(0,10);
+    r.last = today;
+    r.include = false;
+    let t = "Plow";
+    const svcs = r.services||[];
+    if(svcs.includes("Plow") && svcs.includes("Salt")) t="Both";
+    else if(svcs.includes("Salt") && !svcs.includes("Plow")) t="Salt";
+    jobs.unshift({
+      id: crypto.randomUUID(),
+      customerId: r.id,
+      date: today,
+      type: t,
+      status: "Completed",
+      notes: "Marked done from route preview"
+    });
+    await saveState();
+    renderAll();
+  }
+
+  function openJobModal(){
+    if(!rows.length){ alert("No customers yet."); return; }
+    const sel = $("#j_customer");
+    sel.innerHTML = rows.map(r=>`<option value="${r.id}">${r.name||"(no name)"} — ${r.address||""}</option>`).join("");
+    $("#j_date").value = new Date().toISOString().slice(0,10);
+    $("#j_status").value = "Completed";
+    $("#j_type").value = "Plow";
+    $("#j_notes").value = "";
+    $("#jobModal").showModal();
+  }
+
+  $("#j_save").addEventListener("click", async (e)=>{
+    e.preventDefault();
+    const rec = {
+      id: crypto.randomUUID(),
+      customerId: $("#j_customer").value,
+      date: $("#j_date").value,
+      type: $("#j_type").value,
+      status: $("#j_status").value,
+      notes: $("#j_notes").value.trim()
+    };
+    jobs.unshift(rec);
+    await saveState();
+    $("#jobModal").close();
+    renderAll();
+  });
+
+  function renderJobs(){
+    const root = $("#jobsList");
+    root.innerHTML = "";
+    if(!jobs.length){
+      root.innerHTML = '<div class="card muted">No jobs logged yet.</div>';
+      return;
+    }
+    jobs.slice(0,200).forEach(j=>{
+      const c = rows.find(r=>r.id===j.customerId) || {};
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `
+        <div class="row" style="justify-content:space-between;align-items:flex-start">
+          <div>
+            <b>${c.name||"(no name)"}</b>
+            <span class="muted">— ${c.address||""}</span>
+            <div class="muted" style="font-size:.8rem;margin-top:4px">${j.date} • ${j.type} • ${j.status}</div>
+            ${j.notes ? `<div style="font-size:.8rem;margin-top:4px">${j.notes}</div>` : ""}
+          </div>
+        </div>`;
+      root.appendChild(div);
+    });
+  }
+
+  function renderAll(){
+    renderList();
+    renderRoutePreview();
+    renderJobs();
+  }
+
+  async function initApp(fromLogin){
+    updateUserLabel();
+    if(!tenantCode){
+      if(!fromLogin){
+        openLoginModal();
+      }
+      return;
+    }
+    try{
+      await fetchState();
+    }catch(e){
+      console.error("Failed to load from server, starting empty", e);
+      rows = [];
+      jobs = [];
+    }
+    if(rows.length===0){
+      rows = PRELOADED_CUSTOMERS.map(c=>({
+        id: crypto.randomUUID(),
+        phone:"",
+        price:"",
+        balance:"",
+        next:"",
+        last:"",
+        include:false,
+        type:c.type || "Commercial",
+        ...c
+      }));
+      await saveState();
+    }
+    const overdueOnly = localStorage.getItem("pd_overdue_only")==="1";
+    $("#overdueOnly").checked = overdueOnly;
+    renderAll();
+  }
+
+  document.addEventListener("DOMContentLoaded", ()=>{
+    initApp(false);
+  });
+</script>
+</body>
+</html>
